@@ -19,6 +19,17 @@ make -j $NUM_CPUS install T=x86_64-native-linuxapp-gcc
 )
 
 (
+cd deps/mtcp
+(
+	cd dpdk
+	ln -s ../../dpdk/x86_64-native-linuxapp-gcc/include include
+	ln -s ../../dpdk/x86_64-native-linuxapp-gcc/lib lib
+)
+./configure --with-dpdk-lib=`pwd`/dpdk --without-libpsio
+make -j $NUM_CPUS
+)
+
+(
 cd lua/lib/turbo
 make 2> /dev/null
 if [[ $? > 0 ]]
