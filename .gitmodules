@@ -23,3 +23,7 @@
 [submodule "lua/lib/turbo"]
 	path = lua/lib/turbo
 	url = https://github.com/emmericp/turbo
+[submodule "deps/mtcp"]
+	path = deps/mtcp
+	url = https://github.com/simonwagner/mtcp.git
+	branch = libmoon
