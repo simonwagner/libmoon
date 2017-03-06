@@ -198,6 +198,7 @@ function mod.init()
 		end
 	end
 	local argc = #argv
+	log:info("Initializing DPDK with arguments: "..table.concat(argv, " "))
 	dpdkc.rte_eal_init(argc, ffi.new("const char*[?]", argc, argv))
 	local device = require "device"
 	local devices = device.getDevices()
