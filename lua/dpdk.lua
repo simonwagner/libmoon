@@ -119,6 +119,10 @@ function mod.init()
 	for _, f in ipairs(cfgFileLocations) do
 		if fileExists(f) then
 			local cfgScript = loadfile(f)
+			if cfgScript == nil then
+				log:error("Could not parse config file " .. f)
+				return false
+			end
 			setfenv(cfgScript, setmetatable({ DPDKConfig = function(arg) cfg = arg end }, { __index = _G }))
 			local ok, err = pcall(cfgScript)
 			if not ok then
