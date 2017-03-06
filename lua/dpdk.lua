@@ -165,7 +165,12 @@ function mod.init()
 	argv[#argv + 1] = ("-c0x%08X%08X"):format(coreMaskUpper, coreMaskLower)
 	-- core mapping, shared cores use the highest IDs
 	local maxCore = cfg.cores[#cfg.cores]
-	local coreMapping = ("%d-%d,(%d-%d)@0"):format(cfg.cores[1], maxCore, maxCore + 1, maxCore + libmoon.config.numSharedCores)
+	local coreMapping = nil
+	if cfg.coreMapping == nil then
+		coreMapping = ("%d-%d,(%d-%d)@0"):format(cfg.cores[1], maxCore, maxCore + 1, maxCore + libmoon.config.numSharedCores)
+	else
+		coreMapping = cfg.coreMapping
+	end
 	argv[#argv + 1] = ("--lcores=%s"):format(coreMapping)
 
 	if cfg.pciBlacklist then
