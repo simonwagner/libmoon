@@ -15,7 +15,10 @@ namespace libmoon {
 	static volatile uint64_t stop_at = -1;
 	static volatile uint64_t signal_at = -1;
 
-	static void handler(int unused) {
+    void signal_handler(int signal) {
+        if(signal != SIGINT && signal != SIGTERM) {
+            return;
+        }
 		if (signal_at != (uint64_t) -1) {
 			// cancel was requested more than once, just bail out
 			std::cerr << "Received more than one SIGINT/SIGTERM, aborting" << std::endl;
@@ -25,8 +28,8 @@ namespace libmoon {
 	}
 
 	void install_signal_handlers() {
-		signal(SIGINT, handler);
-		signal(SIGTERM, handler);
+        signal(SIGINT, signal_handler);
+        signal(SIGTERM, signal_handler);
 	}
 
 	// do not change the return type to bool as luajit doesn't like this
