@@ -8,6 +8,9 @@ local S = require "syscall"
 
 local log	 = require "log"
 
+mod.INADDR_ANY = 0x00000000
+mod.INADDR_BROADCAST = 0xffffffff
+
 function mod.configure(options)--num_cores, num_memory_channels, num_interfaces, num_connections_per_core)
 	local config = mtcpc.moonmtcp_create_config()
 	if config == nil then
@@ -89,6 +92,59 @@ function mod.connectIPv4NonBlocking(mctx, ipv4Address, port, queue, events)
 	else
 		return ret
 	end
+end
+
+function mod.listenIPv4NonBlocking(mctx, ipv4Address, port, backlog, queue, events)
+	local address_int = nil
+	
+	if not ipv4Address == nil then
+		address_int = parseIP4Address(ipv4Address)
+	else
+		address_int = mod.INADDR_ANY
+	end
+
+	local sockid = mtcpc.moonmtcp_create_tcp_socket(mctx)
+	mtcpc.mtcp_setsock_nonblock(mctx, sockid)
+	
+	local ret = 0
+	
+	ret = mtcpc.moonmtcp_bind(mctx, sockid, address_int, port)
+	if ret < 0 then
+		return ret
+	end
+	
+	ret = mtcpc.mtcp_listen(mctx, sockid, backlog)
+	if ret < 0 then
+		return ret
+	end
+
+	ret = queue:addSocket(mctx, sockid, events)
+	
+	if ret < 0 then
+		return ret
+	else
+		return sockid
+	end
+end
+
+function mod.acceptNonBlocking(mctx, listener)
+	local address = S.types.t.sockaddr_in()
+	local length = S.types.t.socklen1()
+	
+	local sockid = mtcpc.mtcp_accept(mctx, listener, S.types.pt.sockaddr(address), length)
+	
+	if sockid < 0 then
+		return sockid, nil, 0
+	end
+	
+	mtcpc.mtcp_setsock_nonblock(mctx, sockid)
+	
+	local addressInt = ntoh(address.sin_addr.s_addr)
+	local port = ntoh16(address.sin_port)
+	
+	local addressString = ip4ToString(addressInt)
+	
+	return sockid, addressString, port
 end
 
 function mod.createEventQueue(mctx, maxevents)

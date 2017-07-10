@@ -73,6 +73,23 @@ int moonmtcp_connect_ipv4(mctx_t mctx, int sockid, in_addr_t ipv4, in_port_t por
 	}
 }
 
+int moonmtcp_bind(mctx_t mctx, int sockid, in_addr_t ipv4, in_port_t port)
+{
+	struct sockaddr_in addr;
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(ipv4);
+	addr.sin_port = htons(port);
+
+	int connect_ret = mtcp_bind(mctx, sockid, (struct sockaddr *)&addr, sizeof(struct sockaddr_in));
+
+	if(connect_ret == 0) {
+		return sockid;
+	}
+	else {
+		return connect_ret;
+	}
+}
+
 struct moon_mtcp_event_queue* moonmtcp_create_eventqueue(mctx_t mctx, int maxevents)
 {
 	struct moon_mtcp_event_queue* queue = (struct moon_mtcp_event_queue*)calloc(1, sizeof(struct moon_mtcp_event_queue));
