@@ -27,3 +27,7 @@
 	path = deps/mtcp
 	url = https://github.com/simonwagner/mtcp.git
 	branch = libmoon
+[submodule "deps/lwip-dpdk"]
+	path = deps/lwip-dpdk
+	url = https://github.com/simonwagner/lwip-dpdk
+	branch = master
