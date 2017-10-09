@@ -25,6 +25,18 @@ function mod.numDevices()
 	return dpdkc.rte_eth_dev_count();
 end
 
+function mod.getByPciAddress(id)
+	for i=0,mod.numDevices() do
+		device = mod.get(i)
+
+		if device:getPciAddress() == id then
+			return device
+		end
+	end
+
+	return nil
+end
+
 local dev = {}
 dev.__index = dev
 dev.__type = "device"
