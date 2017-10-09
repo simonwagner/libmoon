@@ -261,6 +261,7 @@ ffi.cdef[[
 	int dpdk_configure_device(struct libmoon_device_config*);
 	void get_mac_addr(int port, char* buf);
 	uint32_t dpdk_get_pci_id(uint8_t port);
+	uint32_t dpdk_get_pci_addr(uint8_t port, char* buf);
 	uint32_t read_reg32(uint8_t port, uint32_t reg);
 	uint64_t read_reg64(uint8_t port, uint32_t reg);
 	void write_reg32(uint8_t port, uint32_t reg, uint32_t val);

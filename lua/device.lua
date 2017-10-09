@@ -393,6 +393,15 @@ function dev:getLinkStatus()
 	return {status = link.link_status == 1, duplexAutoneg = link.link_duplex == 0, duplex = link.link_duplex == 2, speed = link.link_speed}
 end
 
+function dev:getPciAddress()
+	local buf = ffi.new("char[20]")
+	if dpdkc.dpdk_get_pci_addr(self.id, buf) > 0 then
+		return ffi.string(buf)
+	else
+		return nil
+	end
+end
+
 function dev:getMacString()
 	local buf = ffi.new("char[20]")
 	dpdkc.dpdk_get_mac_addr(self.id, buf)

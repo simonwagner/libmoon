@@ -214,6 +214,28 @@ uint32_t dpdk_get_pci_id(uint8_t port) {
 	return dev_info.pci_dev->id.vendor_id << 16 | dev_info.pci_dev->id.device_id;
 }
 
+uint32_t dpdk_get_pci_addr(uint8_t port, char* buf) {
+	struct rte_eth_dev_info dev_info;
+	rte_eth_dev_info_get(port, &dev_info);
+	if (!dev_info.pci_dev) {
+		return 0;
+	}
+	struct rte_pci_addr* addr = &dev_info.pci_dev->addr;
+	if(buf) {
+		//TODO: replace with rte_pci_device_name
+		snprintf(buf, 17, "%.4" PRIx16 ":%.2" PRIx8 ":%.2" PRIx8 ".%" PRIx8,
+		         addr->domain,
+		         addr->bus,
+		         addr->devid,
+				 addr->function);
+		return 17; //amount of bytes written to buf (16 chars + '\0')
+	}
+	else {
+		return 0;
+	}
+	
+}
+
 uint8_t dpdk_get_socket(uint8_t port) {
 	struct rte_eth_dev_info dev_info;
 	rte_eth_dev_info_get(port, &dev_info);

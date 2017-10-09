@@ -14,6 +14,7 @@ const char* dpdk_get_driver_name(int port);
 int dpdk_get_i40e_vsi_seid(int port);
 uint64_t dpdk_get_mac_addr(int port, char* buf);
 uint32_t dpdk_get_pci_id(uint8_t port);
+uint32_t dpdk_get_pci_addr(uint8_t port, char* buf);
 uint8_t dpdk_get_socket(uint8_t port);
 uint32_t read_reg32(uint8_t port, uint32_t reg);
 void write_reg32(uint8_t port, uint32_t reg, uint32_t val);
