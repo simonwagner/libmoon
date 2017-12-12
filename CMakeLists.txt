@@ -46,9 +46,14 @@ SET(MTCP_LIBS
 	numa
 )
 
+SET(LWIP_DPDK_LIBS
+	lwipdpdk
+)
+
 SET(ALL_LIBS
 	${LUAJIT_LIBS}
 	${MTCP_LIBS}
+	-Wl,--whole-archive ${LWIP_DPDK_LIBS} -Wl,--no-whole-archive
 	-Wl,--start-group ${DPDK_LIBS} -Wl,--end-group
 	pthread dl rt
 )
@@ -73,6 +78,7 @@ LINK_DIRECTORIES(
 	${CMAKE_CURRENT_SOURCE_DIR}/deps/luajit/usr/local/lib
 	${CMAKE_CURRENT_SOURCE_DIR}/deps/mtcp/mtcp/lib/
 	${CMAKE_CURRENT_SOURCE_DIR}/deps/mtcp/libmoon/lib/
+	${CMAKE_CURRENT_SOURCE_DIR}/deps/lwip-dpdk/build/
 )
 
 IF(LIBMOON_BUILD_LIBRARY)

@@ -33,7 +33,7 @@ make -j $NUM_CPUS
 cd deps/lwip-dpdk
 DPDK_LIB_PATH=`pwd`/../dpdk/x86_64-native-linuxapp-gcc ./build.sh
 cd ../..
-ln -s ../deps/lwip/build/liblwip.so build/liblwip.so #create link to shared library
+ln -s ../deps/lwip-dpdk/build/liblwip.so build/liblwip.so #create link to shared library
 )
 
 (
