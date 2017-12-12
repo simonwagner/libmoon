@@ -4,6 +4,8 @@ local mtcpc = require "mtcpc"
 local mtcp = require "mtcp"
 local ffi = require "ffi"
 local bit = require "bit"
+local syscall = require "syscall"
+local device = require "device"
 
 ffi.cdef [[
 char *strerror(int errnum);
@@ -15,13 +17,14 @@ local function strerror(e)
 end
 
 function configure(parser)
-	parser:option("-p --dpdk-port", "Devices to use."):args(1):convert(tonumber)
+	parser:option("-p --dpdk-port", "Devices to use."):args(1)
 	parser:option("-a --address", "Local address to use."):args(1)
 	parser:option("-m --netmask", "Local netmask to use."):args(1)
-	parser:option("-H --host", "Remote host to connect to."):args(1)
+	parser:option("-H --host", "Remote hosts to connect to."):args("+"):action("concat")
 	parser:option("-P --port", "Remote port to connect to."):args(1):convert(tonumber)
 	parser:option("-c --cores", "number of cores mTCP will use"):args(1):convert(tonumber):default(1)
 	parser:option("-n --concurrency", "number of connections per core"):args(1):convert(tonumber):default(1)
+	parser:option("--pidfile", "pidfile location"):args(1):default("/dev/null")
 	parser:option("--send-buffer", "send buffer size"):args(1):convert(tonumber):default(1460)
 	parser:option("--receive-buffer", "receive buffer size"):args(1):convert(tonumber):default(1460)
 
@@ -31,6 +34,27 @@ function configure(parser)
 end
 
 function master(args)
+	-- write pid to file
+	if args.pidfile ~= "/dev/null" then
+		log:info("Writing PID to %s", args.pidfile)
+		pidfile = io.open(args.pidfile, "w")
+		io.output(pidfile)
+		io.write(syscall.getpid())
+		io.close(pidfile)
+	end
+	-- get correct device
+	pci_address = args.dpdk_port:match("^pci@(.*)$")
+	if pci_address ~= nil then
+		matching_device = device.getByPciAddress(pci_address)
+		if matching_device ~= nil then
+			dpdk_port = matching_device.id
+		else
+			log:error("Device with PCI address %s not found", pci_address)
+			return
+		end
+	else
+		dpdk_port = tonumber(args.dpdk_port)
+	end
 	-- configure mtcp
 	log:info("Configuring mtcp on %d cores...", args.cores)
 	local mtcpConfig = mtcp.configure({
@@ -40,7 +64,7 @@ function master(args)
 									   max_concurrency=args.cores + args.concurrency,
 									   rcvbuf_size=args.receive_buffer,
 									   sndbuf_size=args.send_buffer})
-	mtcpConfig:configureInterface(0, args.address, args.netmask, args.dpdk_port)
+	mtcpConfig:configureInterface(0, args.address, args.netmask, dpdk_port)
 
 	log:info("Initializing mtcp...")
 	mtcp.init(mtcpConfig)
@@ -126,16 +150,19 @@ function echo(core, mtcpCore, args)
 	log:info("Setting up mTCP context on lcore %d", core)
 
 	local mctx = mtcpc.mtcp_create_context_on_lcore(mtcpCore, core + 1)
-
-	mtcp.initRSS(mctx, 10, args.host, args.port)
+	
+	log:info("Hosts: %d", #args.host)
+	log:info("Host0: %s", args.host[1])
+	mtcp.initRSS(mctx, 2, args.host[1], args.port) -- TODO: fix this
 
 	log:info("Creating event queue...")
 	queue = mtcp.createEventQueue(mctx, args.concurrency) -- save at least enough space for all connect events, might not be a good idea
 
 	local context = {}
 	for i = 1, args.concurrency do
-		log:info("Connecting socket to %s:%d...", args.host, args.port)
-		local sockid = mtcp.connectIPv4NonBlocking(mctx, args.host, args.port, queue, bit.bor(mtcpc.MTCP_EPOLLOUT, mtcpc.MTCP_EPOLLERR))
+		host = args.host[(i % #args.host) + 1]
+		log:info("Connecting socket to %s:%d...", host, args.port)
+		local sockid = mtcp.connectIPv4NonBlocking(mctx, host, args.port, queue, bit.bor(mtcpc.MTCP_EPOLLOUT, mtcpc.MTCP_EPOLLERR))
 		if sockid < 0 then
 			log:error("Failed to establish connection: errno %d", sockid)
 			return
