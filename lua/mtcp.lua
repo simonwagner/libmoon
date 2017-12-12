@@ -60,7 +60,7 @@ mod.moon_mtcp_dpdk_config = ffi.metatype("struct moon_mtcp_dpdk_config", mt_moon
 
 function mod.initRSS(mctx, addressPoolSize, dstIPv4Address, dstPort)
 	local dstIPv4Address_int = bswap(parseIP4Address(dstIPv4Address))
-	mtcpc.mtcp_init_rss(mctx, 0, addressPoolSize, dstIPv4Address_int, dstPort)
+	mtcpc.mtcp_init_rss(mctx, 0, addressPoolSize, dstIPv4Address_int, bswap16(dstPort))
 end
 
 function mod.connectIPv4(mctx, ipv4Address, port)
