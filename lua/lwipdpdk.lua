@@ -55,6 +55,12 @@ typedef enum {
   ERR_ARG        = -16
 } err_enum_t;
 
+/* those are defines in lwip, define them here as enums */
+enum tcp_write_flags {
+	TCP_WRITE_FLAG_COPY = 0x01,
+	TCP_WRITE_FLAG_MORE = 0x02
+};
+
 struct lwip_dpdk_global_context* lwip_dpdk_init();
 int lwip_dpdk_start(struct lwip_dpdk_global_context* global_context);
 void lwip_dpdk_close(struct lwip_dpdk_global_context* global_context);

@@ -5,6 +5,11 @@ local ffi = require "ffi"
 local bit = require "bit"
 local syscall = require "syscall"
 local device = require "device"
+require "utils"
+
+ffi.cdef[[
+struct client_arg { struct lwip_dpdk_context* context; char* buffer; int buffer_size; };
+]]
 
 
 function configure(parser)
@@ -59,7 +64,7 @@ function master(args)
 	
 	log:info("Configuring network interface...")
 	local local_ip_addr = lwipdpdk
-	lwip_dpdk_global_netif_create(global_context,
+	lwipdpdk.lwip_dpdk_global_netif_create(global_context,
 	                              dpdk_port,
 								  ipaddr_from_str(args.address),
 								  ipaddr_from_str(args.netmask),
@@ -67,67 +72,88 @@ function master(args)
 	
 	local contexts = {}
 	for core = 0, args.cores - 1 do
-		context[core] = lwipdpdk.lwip_dpdk_context_create(global_context, core)
+		contexts[core] = lwipdpdk.lwip_dpdk_context_create(global_context, core)
 	end
 	
 	log:info("Configuration done, starting lwip stack...")
-	if lwip_dpdk_start(global_context) < 0 then
+	if lwipdpdk.lwip_dpdk_start(global_context) < 0 then
 		log:error("Failed to start lwip stack")
 	end
 
 	-- start tasks
 	for core = 0, args.cores - 1 do
-		log:info()
-		lm.startTaskOnCore(mtcpApplicationLCore, "client", core, args)
+		log:info("Starting client on core %d", core)
+		lm.startTaskOnCore(core + 1, "client", contexts[core], core, args)
 	end
 	log:info("Waiting for Tasks to finish...")
 	lm.waitForTasks()
 	
-	lwip_dpdk_close(global_context)
+	lwipdpdk.lwip_dpdk_close(global_context)
 end
 
 local function sent(arg, pcb, len)
-	local available = lwip_dpdk_tcp_sndbuf(pcb)
-	local context = arg["context"]
-	local buffer = arg["buffer"]
-	local buffer_size = arg["buffer_size"]
+	arg = ffi.cast("struct client_arg*", arg)
+	local available = lwipdpdk.lwip_dpdk_tcp_sndbuf(pcb)
+	local context = arg.context
+	local buffer = arg.buffer
+	local buffer_size = arg.buffer_size
 	
-	lwipdpdk.lwip_dpdk_tcp_write(context, pcb, buffer, buffer_size)
+	lwipdpdk.lwip_dpdk_tcp_write(context, pcb, buffer, buffer_size, lwipdpdk.TCP_WRITE_FLAG_MORE)
+	
+	return lwipdpdk.ERR_OK
 end
 
 
 local function read(arg, pcb, p, err)
-	local context = arg["context"]
+	arg = ffi.cast("struct client_arg*", arg)
+	local context = arg.context
 	lwipdpdk.lwip_dpdk_tcp_recved(context, pcb, p.len)
+	
+	return lwipdpdk.ERR_OK
+end
+
+local function connected(arg, pcb, error)
+	arg = ffi.cast("struct client_arg*", arg)
+	if error == lwipdpdk.ERR_OK then
+		log:info("Connected")
+	else
+		log:error("Connection error %d", error)
+	end
+	
+	local available = lwipdpdk.lwip_dpdk_tcp_sndbuf(pcb)
+    local context = arg.context
+    local buffer = arg.buffer
+    local buffer_size = arg.buffer_size
+
+    lwipdpdk.lwip_dpdk_tcp_write(context, pcb, buffer, buffer_size, 0)
+	
+	return lwipdpdk.ERR_OK
 end
 
 function client(context, core, args)
 	-- disable JIT
 	jit.off()
-	logger:info("running client on core %d", core)
+	log:info("running client on core %d", core)
 	
 	local BUFFER_SIZE = 1448
 
-	local connection = lwip_dpdk_tcp_new(context)
+	local connection = lwipdpdk.lwip_dpdk_tcp_new(context)
 	
 	local pcb_args = {}
-	local pcb_arg = {
-		             context=context,
-	                 buffer=ffi.new("char[?]", BUF_SIZE)
-				 }
+	local pcb_arg = ffi.new("struct client_arg")
+	pcb_arg.context = context
+	pcb_arg.buffer = ffi.new("char[?]", BUFFER_SIZE)
+	pcb_arg.buffer_size = BUFFER_SIZE
+
 	lwipdpdk.lwip_dpdk_tcp_arg(context, connection, pcb_arg)
-	lwipdpdk.lwip_dpdk_tcp_sent(context, connection, write)
+	lwipdpdk.lwip_dpdk_tcp_sent(context, connection, sent)
 	lwipdpdk.lwip_dpdk_tcp_recv(context, connection, read)
 	
-	pcb_args[connection] = pcb_arg -- keep reference, so it is not GCed
+	pcb_args[connection] = pcb_arg -- keep reference, so we can free it later
 	
-	lwipdpdk.lwip_dpdk_tcp_connect(context, connection, host, args.port, function(pcb_arg, pcb, error)
-		if error == lwip_dpdk.ERR_OK then
-			log:info("Connected")
-		else
-			log:error("Connection error %d", error)
-		end
-	end)
+	local host = args.host[1]
+
+	lwipdpdk.lwip_dpdk_tcp_connect(context, connection, bswap(parseIP4Address(host)), args.port, connected)
 	
 	log:info("Starting dispatching I/O...")
 	while lm.running() do -- check if Ctrl+c was pressed
